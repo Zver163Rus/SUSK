@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Навигатор розыска</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+    .hidden { display: none !important; }
+
+    /* ===== ЭКРАН ВХОДА ===== */
+    #authScreen {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(ellipse at 15% 20%, rgba(90,110,50,.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 85%, rgba(60,75,40,.35) 0%, transparent 55%),
+        linear-gradient(160deg, #131a10 0%, #1c2416 45%, #10150c 100%);
+      position: relative; overflow: hidden;
+    }
+
+    .grid-bg {
+      position: absolute; inset: 0; pointer-events: none; opacity: .12;
+      background-image:
+        linear-gradient(rgba(212,169,57,.35) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,169,57,.35) 1px, transparent 1px);
+      background-size: 42px 42px;
+    }
+    .vignette { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
+
+    .auth-wrap { display: flex; align-items: center; gap: 48px; flex-wrap: wrap; justify-content: center; padding: 30px; z-index: 1; }
+
+    .scene { width: 480px; max-width: 92vw; filter: drop-shadow(0 20px 50px rgba(0,0,0,.45)); }
+    .scene svg { width: 100%; height: auto; display: block; }
+
+    .radar-sweep { transform-origin: 380px 170px; animation: spin 5s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .radar-blip { animation: blip 5s infinite; }
+    @keyframes blip { 0%, 12% { opacity: 0; } 16%, 38% { opacity: 1; } 45%, 100% { opacity: 0; } }
+
+    .lamp-glow { animation: lamp 3.4s infinite ease-in-out; }
+    @keyframes lamp { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+    .smoke { animation: smoke 6s infinite ease-in-out; transform-origin: center; }
+    @keyframes smoke { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-6px); opacity: .9; } }
+    .cursor-blink { animation: cblink 1.1s steps(1) infinite; }
+    @keyframes cblink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+
+    .stamp {
+      position: absolute; right: 26px; top: 26px;
+      border: 3px solid rgba(200,60,50,.75); color: rgba(200,60,50,.85);
+      font-size: 15px; font-weight: bold; letter-spacing: 3px;
+      padding: 7px 14px; border-radius: 4px; transform: rotate(9deg);
+      font-family: 'Courier New', monospace; pointer-events: none;
+      animation: stampIn .7s ease .5s backwards;
+    }
+    @keyframes stampIn { from { transform: rotate(9deg) scale(2.2); opacity: 0; } to { transform: rotate(9deg) scale(1); opacity: 1; } }
+
+    .auth-box {
+      background: linear-gradient(155deg, rgba(38,46,28,.92), rgba(24,30,18,.95));
+      border: 1px solid rgba(212,169,57,.4);
+      padding: 34px 30px 28px; border-radius: 8px;
+      width: 340px; position: relative;
+      box-shadow: 0 24px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(212,169,57,.25);
+      animation: pop .6s ease;
+    }
+    .auth-box::before, .auth-box::after {
+      content: ""; position: absolute; top: -12px; width: 90px; height: 20px;
+      background: #2c3520; border: 1px solid rgba(212,169,57,.35); border-radius: 4px 4px 0 0;
+    }
+    .auth-box::before { left: 26px; transform: rotate(-3deg); }
+    .auth-box::after  { right: 26px; transform: rotate(2.5deg); }
+
+    @keyframes pop { from { transform: translateY(24px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    .auth-box h2 {
+      margin: 0 0 2px; text-align: center; font-size: 22px; letter-spacing: 1px;
+      color: #e8d9a8; text-shadow: 0 2px 10px rgba(212,169,57,.35);
+      font-family: 'Georgia', 'Times New Roman', serif;
+    }
+    .auth-sub {
+      text-align: center; color: rgba(220,215,180,.65); font-size: 12px;
+      margin-bottom: 16px; letter-spacing: 2.5px; text-transform: uppercase;
+      font-family: 'Courier New', monospace;
+    }
+    .divider {
+      display: flex; align-items: center; gap: 10px; margin: 0 0 14px; color: #d4a939; font-size: 13px;
+    }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,169,57,.5), transparent); }
+
+    .auth-tabs { display: flex; gap: 6px; margin-bottom: 14px; background: rgba(0,0,0,.35); border-radius: 6px; padding: 4px; border: 1px solid rgba(212,169,57,.25); }
+    .auth-tabs button {
+      flex: 1; padding: 9px; border: none; border-radius: 4px; background: transparent;
+      color: rgba(220,215,180,.55); cursor: pointer; font-size: 13px; letter-spacing: 1px;
+      text-transform: uppercase; font-family: 'Courier New', monospace; transition: all .25s;
+    }
+    .auth-tabs button.active {
+      background: linear-gradient(135deg, #4a5a2e, #2f3d1e);
+      color: #f0e6c0; font-weight: bold;
+      box-shadow: inset 0 0 0 1px rgba(212,169,57,.5), 0 3px 10px rgba(0,0,0,.4);
+    }
+
+    .auth-box input {
+      width: 100%; padding: 12px 14px; margin: 7px 0;
+      border: 1px solid rgba(212,169,57,.3); border-radius: 4px;
+      background: rgba(0,0,0,.35); color: #efe9cf; font-size: 14px; outline: none;
+      font-family: 'Courier New', monospace; transition: border .25s, box-shadow .25s;
+    }
+    .auth-box input::placeholder { color: rgba(220,215,180,.35); }
+    .auth-box input:focus {
+      border-color: #d4a939;
+      box-shadow: 0 0 0 3px rgba(212,169,57,.15), 0 0 16px rgba(212,169,57,.2);
+    }
+
+    .submit-btn {
+      width: 100%; padding: 13px; margin-top: 12px; border: none; border-radius: 4px;
+      background: linear-gradient(135deg, #5a6b33, #3d4a22); color: #f5edcf;
+      cursor: pointer; font-size: 15px; font-weight: bold; letter-spacing: 2px;
+      text-transform: uppercase; font-family: 'Courier New', monospace;
+      position: relative; overflow: hidden; transition: transform .15s, box-shadow .25s;
+      box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 0 0 1px rgba(212,169,57,.5);
+    }
+    .submit-btn::after {
+      content: ""; position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+      background: linear-gradient(120deg, transparent, rgba(240,230,190,.3), transparent);
+      animation: sweep 3.2s infinite;
+    }
+    @keyframes sweep { 0% { left: -80%; } 50%, 100% { left: 130%; } }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.55), inset 0 0 0 1px rgba(212,169,57,.8); }
+
+    .auth-msg { color: #e08578; font-size: 13px; min-height: 18px; text-align: center; margin-top: 6px; font-family: 'Courier New', monospace; }
+    .auth-note {
+      font-size: 11px; color: rgba(220,215,180,.4); margin-top: 12px; text-align: center;
+      font-family: 'Courier New', monospace; letter-spacing: .5px;
+    }
+
+    /* ===== МЕНЮ ШТАБА ===== */
+    #menuScreen {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(ellipse at 20% 15%, rgba(90,110,50,.22) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 90%, rgba(22,32,74,.35) 0%, transparent 60%),
+        linear-gradient(160deg, #131a10 0%, #1c2416 45%, #10150c 100%);
+      position: relative; overflow: hidden;
+    }
+    .menu-box {
+      background: linear-gradient(155deg, rgba(38,46,28,.92), rgba(24,30,18,.95));
+      border: 1px solid rgba(212,169,57,.4);
+      padding: 36px 34px 30px; border-radius: 8px;
+      width: 380px; max-width: 92vw; position: relative; z-index: 1;
+      box-shadow: 0 24px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(212,169,57,.25);
+      animation: pop .6s ease;
+    }
+    .menu-box h2 {
+      margin: 0 0 2px; text-align: center; font-size: 22px; letter-spacing: 1px;
+      color: #e8d9a8; text-shadow: 0 2px 10px rgba(212,169,57,.35);
+      font-family: 'Georgia', 'Times New Roman', serif;
+    }
+    .menu-sub {
+      text-align: center; color: rgba(220,215,180,.65); font-size: 12px;
+      margin-bottom: 20px; letter-spacing: 2.5px; text-transform: uppercase;
+      font-family: 'Courier New', monospace;
+    }
+    .menu-btn {
+      width: 100%; padding: 16px 18px; margin-bottom: 12px; border: none; border-radius: 6px;
+      background: linear-gradient(135deg, #4a5a2e, #2f3d1e); color: #f0e6c0;
+      cursor: pointer; font-size: 16px; font-weight: bold; letter-spacing: 1px;
+      text-align: left; font-family: 'Courier New', monospace;
+      box-shadow: inset 0 0 0 1px rgba(212,169,57,.5), 0 6px 18px rgba(0,0,0,.4);
+      transition: transform .15s, box-shadow .25s;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .menu-btn span.big { font-size: 22px; }
+    .menu-btn:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgba(212,169,57,.8), 0 10px 24px rgba(0,0,0,.5); }
+    .menu-btn .badge {
+      margin-left: auto; background: #c0392b; color: #fff; font-size: 12px;
+      padding: 2px 9px; border-radius: 10px; min-width: 24px; text-align: center;
+    }
+    .menu-who {
+      text-align: center; color: rgba(220,215,180,.55); font-size: 12px;
+      margin-top: 16px; font-family: 'Courier New', monospace;
+    }
+    .menu-logout {
+      width: 100%; padding: 10px; margin-top: 8px; border: 1px solid rgba(212,169,57,.35);
+      border-radius: 4px; background: transparent; color: rgba(220,215,180,.6);
+      cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: 1px; font-size: 12px;
+    }
+    .menu-logout:hover { color: #e08578; border-color: #e08578; }
+
+    /* ===== ЧАТ ===== */
+    #chatScreen { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
+    .chat-header {
+      padding: 10px 14px; background: linear-gradient(90deg, #16204a, #2a1f4a); color: #fff;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .chat-header button { background: rgba(255,255,255,.15); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .chat-body { flex: 1; display: flex; overflow: hidden; }
+
+    .chat-list {
+      width: 260px; background: #fff; border-right: 1px solid #ddd;
+      overflow-y: auto; flex-shrink: 0;
+    }
+    .chat-item {
+      padding: 12px 14px; border-bottom: 1px solid #eee; cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chat-item:hover { background: #f5f7ff; }
+    .chat-item.active { background: #e8eeff; }
+    .chat-item .ci-name { font-weight: bold; color: #222; flex: 1; }
+    .chat-item .ci-unread {
+      background: #c0392b; color: #fff; font-size: 11px; font-weight: bold;
+      padding: 1px 8px; border-radius: 10px; min-width: 22px; text-align: center;
+    }
+    .chat-item .ci-icon {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #4a5a2e, #2f3d1e);
+      color: #f0e6c0; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: bold;
+    }
+    .chat-item .ci-icon.all { background: linear-gradient(135deg, #16204a, #2a1f4a); }
+
+    .chat-main { flex: 1; display: flex; flex-direction: column; }
+    .chat-title { padding: 12px 16px; background: #fff; border-bottom: 1px solid #ddd; font-weight: bold; color: #16204a; }
+    .chat-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .msg {
+      max-width: 70%; padding: 9px 13px; border-radius: 12px; font-size: 14px; line-height: 1.4;
+      word-wrap: break-word; white-space: pre-wrap;
+    }
+    .msg .msg-from { font-size: 11px; font-weight: bold; margin-bottom: 3px; opacity: .7; }
+    .msg .msg-time { font-size: 10px; opacity: .6; margin-top: 3px; text-align: right; }
+    .msg.in  { background: #fff; border: 1px solid #e2e6f0; align-self: flex-start; border-bottom-left-radius: 4px; }
+    .msg.out { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .msg.system { background: transparent; align-self: center; color: #888; font-size: 12px; max-width: 100%; text-align: center; padding: 2px; }
+    .chat-input-bar {
+      display: flex; gap: 8px; padding: 10px 12px; background: #fff; border-top: 1px solid #ddd; flex-shrink: 0;
+    }
+    .chat-input-bar input {
+      flex: 1; padding: 11px 14px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; outline: none;
+    }
+    .chat-input-bar input:focus { border-color: #4a5a2e; }
+    .chat-input-bar button {
+      padding: 11px 20px; border: none; border-radius: 20px; cursor: pointer;
+      background: linear-gradient(135deg, #4a5a2e, #2f3d1e); color: #f0e6c0; font-weight: bold;
+    }
+    .chat-empty { text-align: center; color: #999; margin: auto; font-size: 14px; padding: 20px; }
+
+    /* ===== КАРТА ===== */
+    header { padding: 10px 14px; background: linear-gradient(90deg, #16204a, #2a1f4a); color: #fff;
+             display: flex; justify-content: space-between; align-items: center; }
+    header button { background: rgba(255,255,255,.15); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .controls { padding: 12px; background: #f5f5f5; border-bottom: 1px solid #ccc; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input[type="text"] { padding: 6px 10px; }
+    #addressInput { width: 220px; }
+    button { cursor: pointer; padding: 6px 12px; }
+    #map { width: 100%; height: 65vh; }
+    .list-panel { padding: 12px; overflow-y: auto; max-height: 55vh; }
+
+    .list-title {
+      font-weight: bold; margin: 12px 0 6px; color: #16204a;
+      cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;
+    }
+    .list-title .arrow { display: inline-block; transition: transform .2s; font-size: 12px; }
+    .list-title.collapsed .arrow { transform: rotate(-90deg); }
+    .list-count { font-weight: normal; color: #888; font-size: 12px; }
+
+    .marker-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; border-bottom: 1px dashed #ddd; padding-bottom: 4px; }
+    .color-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .status-person { background: #3498db; }
+    .status-cam { background: #3498db; border-radius: 3px; flex-shrink: 0; }
+    .status-task { background: #f1c40f; }
+    .status-obj { background: #8e44ad; }
+    .edit-btn, .delete-btn, .check-btn, .history-btn {
+      color: #999; border: none; background: none; font-size: 14px; cursor: pointer; flex-shrink: 0;
+    }
+    .delete-btn:hover { color: red; }
+    .edit-btn:hover { color: #3a6ea5; }
+    .check-btn:hover { color: #2c8a4b; }
+    .history-btn:hover { color: #7c4ff5; }
+
+    .card-text { font-size: 13px; color: #555; line-height: 1.4; }
+    .row-main { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .zone-badge {
+      background: #eef2ff; color: #3a4a9e; font-size: 11px;
+      padding: 1px 7px; border-radius: 8px; border: 1px solid #c7d2f5;
+    }
+    .net-badge { font-size: 11px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; }
+    .net-online  { background: #2ecc71; color: #fff; }
+    .net-offline { background: #e74c3c; color: #fff; }
+    .net-unknown { background: #999;    color: #fff; }
+    .net-checking{ background: #f39c12; color: #fff; }
+
+    .prio-badge { font-size: 11px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; font-weight: bold; }
+    .prio-high { background: #e74c3c; color: #fff; }
+    .prio-mid  { background: #f39c12; color: #fff; }
+    .prio-low  { background: #27ae60; color: #fff; }
+
+    .done-badge { font-size: 11px; padding: 1px 7px; border-radius: 8px; flex-shrink: 0; background: #95a5a6; color: #fff; }
+
+    .history-block {
+      font-size: 12px; color: #556; background: #f4f6fa;
+      border: 1px solid #e2e6f0; border-radius: 6px;
+      padding: 6px 10px; margin: 2px 0 10px 22px; white-space: pre-line;
+    }
+
+    .app-stamp {
+      position: fixed; right: 16px; top: 54px; z-index: 900;
+      border: 3px solid rgba(200,60,50,.55); color: rgba(200,60,50,.7);
+      font-size: 13px; font-weight: bold; letter-spacing: 3px;
+      padding: 5px 12px; border-radius: 4px; transform: rotate(8deg);
+      font-family: 'Courier New', monospace; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ЭКРАН ВХОДА -->
+  <div id="authScreen">
+    <div class="grid-bg"></div>
+    <div class="vignette"></div>
+    <div class="stamp">СЕКРЕТНО</div>
+
+    <div class="auth-wrap">
+
+      <div class="scene">
+        <svg viewBox="0 0 480 340" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="480" height="340" fill="#161d11"/>
+          <defs>
+            <radialGradient id="wallShade" cx="50%" cy="35%" r="75%">
+              <stop offset="0%" stop-color="#2a3320" stop-opacity=".9"/>
+              <stop offset="100%" stop-color="#10150c" stop-opacity="1"/>
+            </radialGradient>
+          </defs>
+          <rect x="0" y="0" width="480" height="340" fill="url(#wallShade)"/>
+
+          <g transform="translate(40,34) rotate(-1.5)">
+            <rect x="0" y="0" width="150" height="104" fill="#e8dfc2"/>
+            <rect x="0" y="0" width="150" height="104" fill="none" stroke="#8a7a4d" stroke-width="2"/>
+            <path d="M12 88 Q40 60 62 72 T108 50 T138 62" fill="none" stroke="#7a6b3e" stroke-width="2"/>
+            <path d="M18 30 Q50 44 76 30 T132 34" fill="none" stroke="#7a6b3e" stroke-width="1.4"/>
+            <circle cx="58" cy="46" r="4" fill="none" stroke="#a33d30" stroke-width="2"/>
+            <circle cx="104" cy="72" r="4" fill="none" stroke="#a33d30" stroke-width="2"/>
+            <line x1="58" y1="46" x2="104" y2="72" stroke="#a33d30" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="10" y="18" font-size="9" fill="#5a4d2c" font-family="Courier New" letter-spacing="1">СЕКТОР Г-4</text>
+          </g>
+
+          <g transform="translate(380,170)">
+            <circle r="64" fill="#0d1408" stroke="#5a6b33" stroke-width="2"/>
+            <circle r="44" fill="none" stroke="#3d4a22" stroke-width="1"/>
+            <circle r="24" fill="none" stroke="#3d4a22" stroke-width="1"/>
+            <line x1="-64" y1="0" x2="64" y2="0" stroke="#3d4a22" stroke-width="1"/>
+            <line x1="0" y1="-64" x2="0" y2="64" stroke="#3d4a22" stroke-width="1"/>
+            <g class="radar-sweep">
+              <path d="M0 0 L64 0 A64 64 0 0 0 45 -45 Z" fill="#9ec24a" opacity=".28"/>
+              <line x1="0" y1="0" x2="64" y2="0" stroke="#b9d95e" stroke-width="2"/>
+            </g>
+            <circle class="radar-blip" cx="24" cy="-20" r="3.4" fill="#e8d9a8"/>
+            <circle class="radar-blip" cx="-28" cy="18" r="3.4" fill="#e8d9a8" style="animation-delay:2.5s"/>
+            <text x="0" y="86" text-anchor="middle" font-size="11" fill="#8a9a5a" font-family="Courier New" letter-spacing="2">СЕКТОР ОБЗОРА</text>
+          </g>
+
+          <rect x="60" y="252" width="250" height="14" rx="3" fill="#5a4a2e"/>
+          <rect x="60" y="252" width="250" height="5" rx="2" fill="#6e5a38"/>
+          <rect x="76" y="266" width="14" height="60" fill="#4a3d26"/>
+          <rect x="280" y="266" width="14" height="60" fill="#4a3d26"/>
+
+          <g class="lamp-glow">
+            <line x1="240" y1="150" x2="240" y2="196" stroke="#3d3320" stroke-width="3"/>
+            <path d="M222 196 L258 196 L248 180 L232 180 Z" fill="#3d3320"/>
+            <ellipse cx="240" cy="206" rx="34" ry="12" fill="#f0d98a" opacity=".18"/>
+            <ellipse cx="240" cy="200" rx="18" ry="7" fill="#f0d98a" opacity=".3"/>
+          </g>
+
+          <rect x="120" y="238" width="16" height="14" rx="2" fill="#8a7a4d"/>
+          <path d="M136 242 q6 2 0 6" fill="none" stroke="#8a7a4d" stroke-width="2"/>
+          <g class="smoke">
+            <path d="M125 234 q3 -5 0 -9" fill="none" stroke="#cfc7a8" stroke-width="1.6" opacity=".7"/>
+            <path d="M131 234 q3 -5 0 -9" fill="none" stroke="#cfc7a8" stroke-width="1.4" opacity=".5"/>
+          </g>
+
+          <g transform="translate(178,148)">
+            <path d="M-26 104 L-30 44 Q-30 24 -14 20 L14 20 Q30 24 30 44 L26 104 Z" fill="#1e2418"/>
+            <path d="M-12 26 Q0 34 12 26 L12 36 Q0 44 -12 36 Z" fill="#7a2e26"/>
+            <circle cx="0" cy="2" r="15" fill="#2c331f"/>
+            <ellipse cx="0" cy="-10" rx="26" ry="7" fill="#171c11"/>
+            <path d="M-14 -12 Q-13 -28 0 -28 Q13 -28 14 -12 Z" fill="#1e2418"/>
+            <rect x="-14" y="-15" width="28" height="4" fill="#7a2e26"/>
+            <g transform="translate(34,44) rotate(-24)">
+              <circle r="12" fill="#0d1408" stroke="#d4a939" stroke-width="3"/>
+              <circle r="12" fill="#e8d9a8" opacity=".12"/>
+              <line x1="8" y1="8" x2="24" y2="24" stroke="#6e5a38" stroke-width="4" stroke-linecap="round"/>
+            </g>
+            <path d="M18 46 Q28 40 30 50" fill="none" stroke="#1e2418" stroke-width="7" stroke-linecap="round"/>
+          </g>
+
+          <g transform="translate(288,238) rotate(-4)">
+            <rect x="0" y="0" width="54" height="14" rx="2" fill="#c9b98a"/>
+            <rect x="0" y="0" width="54" height="4" rx="2" fill="#a5925e"/>
+            <text x="27" y="12" text-anchor="middle" font-size="8" fill="#5a4d2c" font-family="Courier New" letter-spacing="1">ДЕЛО №</text>
+          </g>
+
+          <g font-family="Courier New" font-size="9" fill="#8a9a5a" opacity=".85">
+            <text x="66" y="300">> ЛИЧНЫЙ СОСТАВ: НА ПОЗИЦИИ</text>
+            <text x="66" y="314">> СЕКТОР Г-4 · ПРОВЕРКА КАМЕР</text>
+            <text x="66" y="328">> ОПЕРАЦИЯ «ФАЙЛ» · СТАТУС: АКТИВНА <tspan class="cursor-blink">▌</tspan></text>
+          </g>
+
+          <text x="240" y="20" text-anchor="middle" font-size="15" font-weight="bold" fill="#d4a939" font-family="Georgia" letter-spacing="3">ШТАБ ПОИСКОВОГО ОТДЕЛА</text>
+        </svg>
+      </div>
+
+      <div class="auth-box">
+        <h2>★ НАВИГАТОР РОЗЫСКА ★</h2>
+        <div class="auth-sub">Отдел сыщиков</div>
+        <div class="divider">🔍</div>
+        <div class="auth-tabs">
+          <button id="tabLogin" class="active" onclick="switchTab('login')">Явка</button>
+          <button id="tabRegister" onclick="switchTab('register')">Зачислить</button>
+        </div>
+        <input type="text" id="authLogin" placeholder="Позывной (логин)" autocomplete="username" />
+        <input type="password" id="authPass" placeholder="Код доступа (пароль)" autocomplete="current-password" />
+        <div class="auth-msg" id="authMsg"></div>
+        <button id="authBtn" class="submit-btn" onclick="submitAuth()">Доложить о прибытии</button>
+        <div class="auth-note">Данные хранятся только в этом браузере</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- МЕНЮ ШТАБА (после входа) -->
+  <div id="menuScreen" class="hidden">
+    <div class="grid-bg"></div>
+    <div class="vignette"></div>
+    <div class="stamp">СЕКРЕТНО</div>
+    <div class="menu-box">
+      <h2>★ ШТАБ ★</h2>
+      <div class="menu-sub">Выберите направление</div>
+      <button class="menu-btn" onclick="openMap()">
+        <span class="big">🗺️</span> Открыть карту
+      </button>
+      <button class="menu-btn" onclick="openChat()">
+        <span class="big">💬</span> Чат участников
+        <span class="badge" id="menuChatBadge" style="display:none;">0</span>
+      </button>
+      <div class="menu-who" id="menuWho"></div>
+      <button class="menu-logout" onclick="logout()">Выйти из штаба</button>
+    </div>
+  </div>
+
+  <!-- ЧАТ -->
+  <div id="chatScreen" class="hidden">
+    <div class="chat-header">
+      <b>💬 Чат отдела</b>
+      <button onclick="backToMenu()">← В штаб</button>
+    </div>
+    <div class="chat-body">
+      <div class="chat-list" id="chatList"></div>
+      <div class="chat-main">
+        <div class="chat-title" id="chatTitle">Выберите собеседника слева</div>
+        <div class="chat-msgs" id="chatMsgs"></div>
+        <div class="chat-input-bar" id="chatInputBar" style="visibility:hidden;">
+          <input type="text" id="chatInput" placeholder="Сообщение…" onkeydown="if(event.key==='Enter') sendMsg();" />
+          <button onclick="sendMsg()">Отправить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- КАРТА -->
+  <div id="appScreen" class="hidden">
+    <header>
+      <b>🔍 Навигатор розыска</b>
+      <div>
+        <span id="whoami" style="margin-right:10px;"></span>
+        <button onclick="backToMenu()">← В штаб</button>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button onclick="locateMe()">📍 Моё местоположение</button>
+      <input type="text" id="addressInput" placeholder="Адрес (город, улица, дом)" />
+      <button onclick="searchAddress(event)">Найти</button>
+      <button onclick="clearAll()">Очистить всё</button>
+      <span style="margin-left:8px;">Ставим:</span>
+      <select id="placeMode">
+        <option value="search">Метку (человек)</option>
+        <option value="cam">Камеру 📷</option>
+        <option value="task">Задачу 📌</option>
+        <option value="obj">Объект 🏠</option>
+      </select>
+      <span>Зона камер:</span>
+      <select id="zoneFilter" onchange="applyZoneFilter()">
+        <option value="all">Все зоны</option>
+        <option value="living">Жилой сектор</option>
+        <option value="gate">КПП / проходная</option>
+        <option value="road">Трасса</option>
+        <option value="other">Другое</option>
+      </select>
+    </div>
+
+    <div class="app-stamp">СЕКРЕТНО</div>
+    <div id="map"></div>
+    <div class="list-panel" id="list"></div>
+  </div>
+
+  <script src="https://api-maps.yandex.ru/2.1/?apikey=6cc1459b-72b1-4149-9fcd-5c96ae487690&lang=ru_RU" type="text/javascript"></script>
+  <script>
+    /* ================== АВТОРИЗАЦИЯ ================== */
+
+    let currentTab = 'login';
+    let currentUser = null;
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+      document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+      document.getElementById('authBtn').textContent = tab === 'login' ? 'Доложить о прибытии' : 'Зачислить в отдел';
+      document.getElementById('authMsg').textContent = '';
+    }
+
+    async function hashPassword(password) {
+      const data = new TextEncoder().encode(password);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getUsers() { return JSON.parse(localStorage.getItem('nav-users') || '{}'); }
+    function saveUsers(users) { localStorage.setItem('nav-users', JSON.stringify(users)); }
+
+    async function submitAuth() {
+      const login = document.getElementById('authLogin').value.trim();
+      const pass = document.getElementById('authPass').value;
+      const msg = document.getElementById('authMsg');
+
+      if (!login || !pass) { msg.textContent = 'Заполните позывной и код доступа'; return; }
+      if (login.length < 3) { msg.textContent = 'Позывной — минимум 3 символа'; return; }
+      if (pass.length < 4) { msg.textContent = 'Код доступа — минимум 4 символа'; return; }
+
+      const users = getUsers();
+      const hash = await hashPassword(pass);
+
+      if (currentTab === 'register') {
+        if (users[login]) { msg.textContent = 'Такой позывной уже числится в списках'; return; }
+        users[login] = { hash: hash, createdAt: Date.now() };
+        saveUsers(users);
+        enterApp(login);
+      } else {
+        if (!users[login] || users[login].hash !== hash) {
+          msg.textContent = 'Позывной не найден или код доступа неверен';
+          return;
+        }
+        enterApp(login);
+      }
+    }
+
+    function enterApp(login) {
+      currentUser = login;
+      sessionStorage.setItem('nav-session', login);
+      document.getElementById('authScreen').classList.add('hidden');
+      showMenu();
+    }
+
+    function showMenu() {
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('chatScreen').classList.add('hidden');
+      const menu = document.getElementById('menuScreen');
+      menu.classList.remove('hidden');
+      document.getElementById('menuWho').textContent = '👤 На связи: ' + currentUser;
+      updateChatBadge();
+    }
+
+    function openMap() {
+      document.getElementById('menuScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      document.getElementById('whoami').textContent = '👤 ' + currentUser;
+      if (!map) initMap();
+      /* карта могла инициализироваться, пока была скрыта — даём ей пересчитаться */
+      if (map) map.container.fitToViewport();
+    }
+
+    function backToMenu() {
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('chatScreen').classList.add('hidden');
+      clearInterval(chatTimer);
+      showMenu();
+    }
+
+    function logout() {
+      if (!confirm('Выйти из аккаунта?')) return;
+      sessionStorage.removeItem('nav-session');
+      location.reload();
+    }
+
+    window.addEventListener('load', function () {
+      const session = sessionStorage.getItem('nav-session');
+      if (session && getUsers()[session]) enterApp(session);
+    });
+
+    /* ================== ЧАТ ==================
+       В этой версии чат работает в пределах одного браузера:
+       позывные, зарегистрированные здесь, могут переписываться.
+       (При подключении общей базы чат станет общим между устройствами.) */
+
+    let chatTimer = null;      // автообновление чата
+    let chatChannel = null;    // 'all' или позывной собеседника
+
+    function chatKey(channel) {
+      if (channel === 'all') return 'nav-chat-all';
+      /* личная переписка — одна на пару, независимо от того, кто пишет */
+      const pair = [currentUser, channel].sort();
+      return 'nav-chat-' + pair[0] + '__' + pair[1];
+    }
+
+    function readKey(channel) {
+      return 'nav-chat-read-' + currentUser + '-' + channel;
+    }
+
+    function getMessages(channel) {
+      return JSON.parse(localStorage.getItem(chatKey(channel)) || '[]');
+    }
+
+    function saveMessages(channel, arr) {
+      localStorage.setItem(chatKey(channel), JSON.stringify(arr));
+    }
+
+    function unreadCount(channel) {
+      const msgs = getMessages(channel);
+      const lastRead = parseInt(localStorage.getItem(readKey(channel)) || '0', 10);
+      return msgs.filter(m => m.time > lastRead && m.from !== currentUser).length;
+    }
+
+    function totalUnread() {
+      const users = getUsers();
+      let total = unreadCount('all');
+      Object.keys(users).forEach(function (u) {
+        if (u !== currentUser) total += unreadCount(u);
+      });
+      return total;
+    }
+
+    function updateChatBadge() {
+      const badge = document.getElementById('menuChatBadge');
+      if (!badge) return;
+      const n = totalUnread();
+      if (n > 0) { badge.style.display = ''; badge.textContent = n; }
+      else badge.style.display = 'none';
+    }
+
+    function openChat() {
+      document.getElementById('menuScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('chatScreen').classList.remove('hidden');
+      chatChannel = null;
+      renderChatList();
+      document.getElementById('chatMsgs').innerHTML =
+        '<div class="chat-empty">Выберите слева «Все участники» или позывной собеседника</div>';
+      document.getElementById('chatTitle').textContent = 'Выберите собеседника слева';
+      document.getElementById('chatInputBar').style.visibility = 'hidden';
+      chatTimer = setInterval(function () {
+        if (chatChannel) renderMessages();
+        renderChatList();
+        updateChatBadge();
+      }, 2000);
+    }
+
+    function renderChatList() {
+      const listEl = document.getElementById('chatList');
+      const users = getUsers();
+      listEl.innerHTML = '';
+
+      /* общий канал */
+      const allItem = document.createElement('div');
+      allItem.className = 'chat-item' + (chatChannel === 'all' ? ' active' : '');
+      allItem.innerHTML = `
+        <div class="ci-icon all">👥</div>
+        <span class="ci-name">Все участники</span>
+        ${unreadCount('all') ? `<span class="ci-unread">${unreadCount('all')}</span>` : ''}
+      `;
+      allItem.onclick = function () { selectChannel('all'); };
+      listEl.appendChild(allItem);
+
+      /* личные каналы */
+      Object.keys(users).forEach(function (u) {
+        if (u === currentUser) return;
+        const item = document.createElement('div');
+        item.className = 'chat-item' + (chatChannel === u ? ' active' : '');
+        item.innerHTML = `
+          <div class="ci-icon">${u.charAt(0).toUpperCase()}</div>
+          <span class="ci-name">${u}</span>
+          ${unreadCount(u) ? `<span class="ci-unread">${unreadCount(u)}</span>` : ''}
+        `;
+        item.onclick = function () { selectChannel(u); };
+        listEl.appendChild(item);
+      });
+
+      if (Object.keys(users).length <= 1) {
+        const note = document.createElement('div');
+        note.style.cssText = 'padding:12px 14px;color:#999;font-size:12px;';
+        note.textContent = 'Пока вы здесь единственный зарегистрированный позывной. Зарегистрируйте других под их позывными (выйдя из аккаунта) — и переписка появится.';
+        listEl.appendChild(note);
+      }
+    }
+
+    function selectChannel(channel) {
+      chatChannel = channel;
+      localStorage.setItem(readKey(channel), String(Date.now()));
+      document.getElementById('chatTitle').textContent =
+        channel === 'all' ? '👥 Все участники' : '👤 ' + channel;
+      document.getElementById('chatInputBar').style.visibility = 'visible';
+      renderMessages();
+      renderChatList();
+      document.getElementById('chatInput').focus();
+    }
+
+    function renderMessages() {
+      if (!chatChannel) return;
+      const box = document.getElementById('chatMsgs');
+      const msgs = getMessages(chatChannel);
+      box.innerHTML = '';
+
+      if (!msgs.length) {
+        box.innerHTML = '<div class="chat-empty">Сообщений пока нет. Напишите первое 🙂</div>';
+        return;
+      }
+
+      msgs.forEach(function (m) {
+        const div = document.createElement('div');
+        if (m.system) {
+          div.className = 'msg system';
+          div.textContent = m.text;
+        } else if (m.from === currentUser) {
+          div.className = 'msg out';
+          div.innerHTML = `<div class="msg-time">${m.timeStr}</div>${escapeHtml(m.text)}`;
+        } else {
+          div.className = 'msg in';
+          div.innerHTML = `<div class="msg-from">${escapeHtml(m.from)}</div>${escapeHtml(m.text)}<div class="msg-time">${m.timeStr}</div>`;
+        }
+        box.appendChild(div);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function sendMsg() {
+      if (!chatChannel) return;
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const msgs = getMessages(chatChannel);
+      msgs.push({
+        from: currentUser,
+        text: text,
+        time: Date.now(),
+        timeStr: new Date().toLocaleString('ru-RU')
+      });
+      if (msgs.length > 500) msgs.splice(0, msgs.length - 500);
+      saveMessages(chatChannel, msgs);
+      input.value = '';
+      localStorage.setItem(readKey(chatChannel), String(Date.now()));
+      renderMessages();
+      renderChatList();
+      updateChatBadge();
+    }
+
+    /* ================== КАРТА ================== */
+
+    let map, items = [], meMarker = null, listEl;
+    let collapsed = { search: false, cam: false, task: false, obj: false };
+    let openHistory = {};
+
+    const ZONES = { living: 'Жилой сектор', gate: 'КПП / проходная', road: 'Трасса', other: 'Другое' };
+    const PRIOS = { high: 'ВЫСОКИЙ', mid: 'СРЕДНИЙ', low: 'НИЗКИЙ' };
+
+    function storageKey() { return 'search-map-' + currentUser; }
+
+    function saveItems() {
+      const data = items.map(i => i.data);
+      localStorage.setItem(storageKey(), JSON.stringify(data));
+    }
+
+    function loadItems() {
+      const saved = localStorage.getItem(storageKey());
+      if (!saved) return;
+      JSON.parse(saved).forEach(d => addItem(d));
+    }
+
+    function initMap() {
+      map = new ymaps.Map("map", {
+        center: [48.3344, 38.0572], // Горловка
+        zoom: 12,
+        controls: ["zoomControl", "fullscreenControl", "geolocationControl"]
+      });
+
+      listEl = document.getElementById("list");
+      loadItems();
+
+      map.events.add('click', function (e) {
+        const mode = document.getElementById('placeMode').value;
+        if (mode === 'cam') addCamera(e.get('coords'));
+        else if (mode === 'task') addTask(e.get('coords'));
+        else if (mode === 'obj') addObject(e.get('coords'));
+        else addSearchMarker(e.get('coords'), null);
+      });
+    }
+
+    function pushHistory(d, text) {
+      d.history = d.history || [];
+      const now = new Date().toLocaleString('ru-RU');
+      d.history.unshift(`[${now}] ${text}`);
+      if (d.history.length > 20) d.history.length = 20;
+    }
+
+    /* --- постановка метки (человек) --- */
+    function addSearchMarker(coords, address) {
+      const name = prompt('Ф. И. О. (или описание):', '');
+      if (name === null) return null;
+
+      const birth = prompt('Дата рождения (например, 05.03.1990, можно пусто):', '');
+      if (birth === null) return null;
+
+      const comment = prompt('Примечание (район, обстоятельства — можно пусто):', '');
+      if (comment === null) return null;
+
+      const data = {
+        coords: coords,
+        type: 'search',
+        name: name || 'Без имени',
+        birth: birth || '',
+        comment: comment || '',
+        address: address || '',
+        author: currentUser || '',
+        history: []
+      };
+      pushHistory(data, 'Метка добавлена (' + (currentUser || '?') + ')' + (address ? ', адрес: ' + address : ''));
+      return addItem(data);
+    }
+
+    /* --- постановка камеры --- */
+    function addCamera(coords) {
+      const camName = prompt('Название камеры (например, «Въезд на базу»):', '');
+      if (camName === null) return null;
+
+      const zoneInput = prompt('Зона камеры (введите цифру):\n1 — жилой сектор\n2 — КПП / проходная\n3 — трасса\n4 — другое', '');
+      if (zoneInput === null) return null;
+      const zoneMap = { '1': 'living', '2': 'gate', '3': 'road', '4': 'other' };
+      const zone = zoneMap[zoneInput.trim()] || 'other';
+
+      const link = prompt('Ссылка на трансляцию или веб-интерфейс камеры\n(например, http://192.168.1.10 — можно оставить пустым):', '');
+      if (link === null) return null;
+
+      const data = {
+        coords: coords,
+        type: 'cam',
+        name: camName || 'Камера',
+        zone: zone,
+        link: link || '',
+        online: 'unknown',
+        address: '',
+        author: currentUser || '',
+        history: []
+      };
+      pushHistory(data, 'Камера добавлена (' + (currentUser || '?') + ')' + (link ? ', ссылка задана' : ', без ссылки'));
+      const item = addItem(data);
+      if (data.link) checkCameraStatus(item);
+      return item;
+    }
+
+    /* --- постановка задачи --- */
+    function addTask(coords) {
+      const name = prompt('Название задачи (что сделать, например «Обойти двор по ул. Ленина»):', '');
+      if (name === null) return null;
+
+      const prioInput = prompt('Приоритет (введите цифру):\n1 — высокий\n2 — средний\n3 — низкий', '');
+      if (prioInput === null) return null;
+      const prioMap = { '1': 'high', '2': 'mid', '3': 'low' };
+      const prio = prioMap[prioInput.trim()] || 'mid';
+
+      const deadline = prompt('Срок выполнения (например, до 08.11.2026, можно пусто):', '');
+      if (deadline === null) return null;
+
+      const note = prompt('Описание / кто исполнитель:', '');
+      if (note === null) return null;
+
+      const data = {
+        coords: coords,
+        type: 'task',
+        name: name || 'Задача',
+        prio: prio,
+        deadline: deadline || '',
+        note: note || '',
+        done: false,
+        address: '',
+        author: currentUser || '',
+        history: []
+      };
+      pushHistory(data, 'Задача поставлена (' + (currentUser || '?') + '), приоритет: ' + PRIOS[prio]);
+      return addItem(data);
+    }
+
+    /* --- постановка объекта --- */
+    function addObject(coords) {
+      const name = prompt('Название объекта (например, «Медпункт», «Склад топлива»):', '');
+      if (name === null) return null;
+
+      const kind = prompt('Тип объекта (например, склад, медпункт, пост, ориентир, укрытие):', '');
+      if (kind === null) return null;
+
+      const note = prompt('Описание (что важно знать):', '');
+      if (note === null) return null;
+
+      const data = {
+        coords: coords,
+        type: 'obj',
+        name: name || 'Объект',
+        kind: kind || '',
+        note: note || '',
+        address: '',
+        author: currentUser || '',
+        history: []
+      };
+      pushHistory(data, 'Объект добавлен (' + (currentUser || '?') + ')' + (kind ? ', тип: ' + kind : ''));
+      return addItem(data);
+    }
+
+    function checkCameraStatus(item) {
+      const d = item.data;
+      if (!d.link) { d.online = 'unknown'; saveItems(); renderList(); return; }
+
+      d.online = 'checking';
+      renderList();
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+
+      fetch(d.link, { mode: 'no-cors', signal: controller.signal })
+        .then(() => {
+          d.online = 'online';
+          pushHistory(d, 'Проверка: камера отвечает (онлайн)');
+        })
+        .catch(() => {
+          d.online = 'offline';
+          pushHistory(d, 'Проверка: камера не отвечает (офлайн) или недоступна из этой сети');
+        })
+        .finally(() => {
+          clearTimeout(timer);
+          saveItems(); renderList();
+        });
+    }
+
+    /* --- нормализация адреса: разворачиваем сокращения --- */
+    function normalizeAddress(q) {
+      return q
+        .replace(/\bул\./gi, 'улица')
+        .replace(/\bул\b/gi, 'улица')
+        .replace(/\bпр\./gi, 'проспект')
+        .replace(/\bпросп\./gi, 'проспект')
+        .replace(/\bпер\./gi, 'переулок')
+        .replace(/\bш\./gi, 'шоссе');
+    }
+
+    /* --- поиск по адресу через OpenStreetMap --- */
+    function searchAddress(e) {
+      let query = normalizeAddress(document.getElementById('addressInput').value.trim());
+      if (!query) return alert('Введите адрес');
+
+      const btn = e.target;
+      btn.innerText = 'Ищу…'; btn.disabled = true;
+
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=ru'
+                  + '&countrycodes=ru'
+                  + '&q=' + encodeURIComponent(query);
+
+      fetch(url, { headers: { 'Accept': 'application/json' } })
+        .then(r => r.json())
+        .then(function (results) {
+          if (!results || !results.length) {
+            alert('Адрес не найден. Уточните: город, улица, номер дома (например, «Горловка улица Ленина 1»).');
+            return;
+          }
+          pickAndPlace(results);
+        })
+        .catch(function (err) {
+          console.error('Поиск адреса:', err);
+          alert('Ошибка поиска адреса. Проверьте интернет-соединение.');
+        })
+        .finally(function () { btn.innerText = 'Найти'; btn.disabled = false; });
+    }
+
+    function pickAndPlace(results) {
+      let pick = results[0];
+
+      if (results.length > 1) {
+        let list = '';
+        results.forEach(function (r, i) {
+          list += (i + 1) + '. ' + r.display_name + '\n';
+        });
+        const n = parseInt(prompt('Найдено несколько вариантов:\n\n' + list + '\nВведите номер (от 1 до ' + results.length + '):', '1'), 10);
+        if (!n || n < 1 || n > results.length) return;
+        pick = results[n - 1];
+      }
+
+      const coords = [parseFloat(pick.lat), parseFloat(pick.lon)];
+      const address = pick.display_name;
+      const mode = document.getElementById('placeMode').value;
+
+      let item = null;
+      if (mode === 'cam') item = addCamera(coords);
+      else if (mode === 'task') item = addTask(coords);
+      else if (mode === 'obj') item = addObject(coords);
+      else item = addSearchMarker(coords, address);
+
+      map.setCenter(coords, 17);
+      if (item && item.marker) {
+        item.marker.balloon.open();
+      }
+    }
+
+    function locateMe() {
+      if (!navigator.geolocation) return alert('Геолокация не поддерживается.');
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          const coords = [pos.coords.latitude, pos.coords.longitude];
+          if (meMarker) map.geoObjects.remove(meMarker);
+          meMarker = new ymaps.Placemark(coords, {
+            balloonContentHeader: "Вы здесь",
+            balloonContentBody: "Точность: ~" + Math.round(pos.coords.accuracy) + " м"
+          }, { preset: "islands#blueDotIcon" });
+          map.geoObjects.add(meMarker);
+          map.setCenter(coords, 15);
+        },
+        function (err) { alert("Не удалось определить местоположение: " + err.message); }
+      );
+    }
+
+    /* --- содержимое баллонов --- */
+    function searchBalloonBody(d) {
+      let body = `<b>📍 ${d.name || 'Без имени'}</b>`;
+      if (d.author) body += ` <span style="color:#888;">(поставил: ${d.author})</span>`;
+      if (d.birth) body += `<br/>Дата рождения: ${d.birth}`;
+      if (d.comment) body += `<br/>${d.comment}`;
+      if (d.address) body += `<br/><i>${d.address}</i>`;
+      if (d.history && d.history.length) {
+        body += `<br/><br/><b>🕘 История:</b><br/>` + d.history.slice(0, 5).join('<br/>');
+      }
+      return body;
+    }
+
+    function camBalloonBody(d) {
+      let body = `<b>📷 ${d.name}</b>`;
+      if (d.author) body += ` <span style="color:#888;">(добавил: ${d.author})</span>`;
+      if (d.zone) body += `<br/>Зона: ${ZONES[d.zone] || d.zone}`;
+      if (d.address) body += `<br/><i>${d.address}</i>`;
+      const net = { online: '🟢 онлайн', offline: '🔴 офлайн', checking: '🟡 проверка…', unknown: '⚪ не проверялась' };
+      body += `<br/>Статус: ${net[d.online] || net.unknown}`;
+      if (d.link) body += `<br/><a href="${d.link}" target="_blank">🎥 Открыть трансляцию</a>`;
+      else body += `<br/><i>Ссылка на трансляцию не задана</i>`;
+      if (d.history && d.history.length) {
+        body += `<br/><br/><b>🕘 История:</b><br/>` + d.history.slice(0, 5).join('<br/>');
+      }
+      return body;
+    }
+
+    function taskBalloonBody(d) {
+      let body = `<b>📌 ${d.name}</b>`;
+      if (d.author) body += ` <span style="color:#888;">(поставил: ${d.author})</span>`;
+      if (d.prio) body += `<br/>Приоритет: <b>${PRIOS[d.prio] || ''}</b>`;
+      if (d.deadline) body += `<br/>Срок: ${d.deadline}`;
+      if (d.note) body += `<br/>${d.note}`;
+      if (d.address) body += `<br/><i>${d.address}</i>`;
+      body += `<br/>Статус: ${d.done ? '✅ выполнена' : '⏳ в работе'}`;
+      if (d.history && d.history.length) {
+        body += `<br/><br/><b>🕘 История:</b><br/>` + d.history.slice(0, 5).join('<br/>');
+      }
+      return body;
+    }
+
+    function objBalloonBody(d) {
+      let body = `<b>🏠 ${d.name}</b>`;
+      if (d.author) body += ` <span style="color:#888;">(добавил: ${d.author})</span>`;
+      if (d.kind) body += `<br/>Тип: ${d.kind}`;
+      if (d.note) body += `<br/>${d.note}`;
+      if (d.address) body += `<br/><i>${d.address}</i>`;
+      if (d.history && d.history.length) {
+        body += `<br/><br/><b>🕘 История:</b><br/>` + d.history.slice(0, 5).join('<br/>');
+      }
+      return body;
+    }
+
+    function searchBalloonHeader(d) {
+      return '📍 ' + (d.name || 'Метка');
+    }
+
+    /* --- добавление элемента на карту --- */
+    function addItem(data) {
+      const id = Date.now().toString() + '_' + Math.floor(Math.random() * 1000);
+
+      let preset, header;
+      switch (data.type) {
+        case 'cam':
+          preset = 'islands#blueVideoIcon';
+          header = '📷 Камера наблюдения';
+          break;
+        case 'task':
+          preset = 'islands#yellowDotIcon';
+          header = data.done ? '✅ Задача: выполнена' : '📌 Задача: в работе';
+          break;
+        case 'obj':
+          preset = 'islands#violetIcon';
+          header = '🏠 Объект';
+          break;
+        default:
+          preset = 'islands#blueCircleDotIcon';
+          header = searchBalloonHeader(data);
+      }
+
+      const marker = new ymaps.Placemark(data.coords, {
+        id: id,
+        balloonContentHeader: header,
+        balloonContentBody: balloonBody(data)
+      }, { preset: preset, draggable: true });
+
+      marker.events.add('dragend', function () {
+        updateItem(id, { coords: marker.geometry.getCoordinates() }, 'Метка перемещена мышью');
+      });
+
+      const item = { id: id, marker: marker, data: data };
+      items.push(item);
+      map.geoObjects.add(marker);
+      saveItems(); renderList();
+      return item;
+    }
+
+    function balloonBody(d) {
+      switch (d.type) {
+        case 'cam': return camBalloonBody(d);
+        case 'task': return taskBalloonBody(d);
+        case 'obj': return objBalloonBody(d);
+        default: return searchBalloonBody(d);
+      }
+    }
+
+    function balloonHeader(d) {
+      switch (d.type) {
+        case 'cam': return '📷 Камера наблюдения';
+        case 'task': return d.done ? '✅ Задача: выполнена' : '📌 Задача: в работе';
+        case 'obj': return '🏠 Объект';
+        default: return searchBalloonHeader(d);
+      }
+    }
+
+    function applyZoneFilter() {
+      const zone = document.getElementById('zoneFilter').value;
+      items.forEach(i => {
+        const visible = zone === 'all' || i.data.type !== 'cam' || i.data.zone === zone;
+        i.marker.options.set('visible', visible);
+      });
+      renderList();
+    }
+
+    function toggleSection(key) {
+      collapsed[key] = !collapsed[key];
+      renderList();
+    }
+
+    function historyBlock(item) {
+      const d = item.data;
+      if (!d.history || !d.history.length) return '';
+      if (!openHistory[item.id]) return '';
+      return `<div class="history-block">${d.history.join('\n')}</div>`;
+    }
+
+    /* --- список --- */
+    function renderList() {
+      listEl.innerHTML = "";
+
+      /* ===== Метки ===== */
+      const searchItems = items.filter(i => i.data.type === 'search');
+      const titleCls = collapsed.search ? 'list-title collapsed' : 'list-title';
+      listEl.insertAdjacentHTML('beforeend',
+        `<div class="${titleCls}" onclick="toggleSection('search')"><span class="arrow">▼</span> 📍 Метки <span class="list-count">(${searchItems.length})</span></div>`);
+
+      if (!collapsed.search) {
+        if (searchItems.length === 0) {
+          listEl.insertAdjacentHTML('beforeend', '<div style="color:#999;font-size:13px;">Пока пусто — кликните по карте или найдите адрес</div>');
+        }
+        searchItems.forEach(i => {
+          const d = i.data;
+          const row = document.createElement('div');
+          row.className = 'marker-row';
+          row.innerHTML = `
+            <div class="row-main">
+              <span class="color-dot status-person"></span>
+              <div class="card-text">
+                <b>${d.name || 'Без имени'}</b><br/>
+                ${d.birth ? '🎂 ' + d.birth + '<br/>' : ''}
+                ${d.author ? '👤 ' + d.author + '<br/>' : ''}
+                ${d.comment ? d.comment : ''}
+              </div>
+            </div>
+            <button class="history-btn" title="История изменений">🕘</button>
+            <button class="edit-btn" title="Редактировать">✎</button>
+            <button class="delete-btn" title="Удалить">×</button>
+          `;
+          row.querySelector('.history-btn').onclick = function () {
+            openHistory[i.id] = !openHistory[i.id]; renderList();
+          };
+          row.querySelector('.edit-btn').onclick = function () { editSearchCard(i); };
+          row.querySelector('.delete-btn').onclick = function () { removeItem(i.id); };
+          listEl.appendChild(row);
+          const hb = historyBlock(i);
+          if (hb) listEl.insertAdjacentHTML('beforeend', hb);
+        });
+      }
+
+      /* ===== Камеры ===== */
+      const cams = items.filter(i => i.data.type === 'cam');
+      const titleCls2 = collapsed.cam ? 'list-title collapsed' : 'list-title';
+      listEl.insertAdjacentHTML('beforeend',
+        `<div class="${titleCls2}" onclick="toggleSection('cam')"><span class="arrow">▼</span> 📷 Камеры наблюдения <span class="list-count">(${cams.length})</span></div>`);
+
+      if (!collapsed.cam) {
+        if (cams.length === 0) {
+          listEl.insertAdjacentHTML('beforeend', '<div style="color:#999;font-size:13px;">Пока не добавлено ни одной камеры</div>');
+        }
+        cams.forEach(i => {
+          const d = i.data;
+          const netCls = { online: 'net-online', offline: 'net-offline', checking: 'net-checking', unknown: 'net-unknown' }[d.online || 'unknown'];
+          const netTxt = { online: 'онлайн', offline: 'офлайн', checking: 'проверка…', unknown: 'не проверена' }[d.online || 'unknown'];
+          const row = document.createElement('div');
+          row.className = 'marker-row';
+          row.innerHTML = `
+            <div class="row-main">
+              <span class="color-dot status-cam">📷</span>
+              <div class="card-text">
+                <b>${d.name || 'Камера'}</b>
+                ${d.zone ? `<span class="zone-badge">${ZONES[d.zone]}</span>` : ''}
+                <span class="net-badge ${netCls}">${netTxt}</span><br/>
+                ${d.link ? `<a href="${d.link}" target="_blank">🎥 трансляция</a>` : 'без ссылки'}
+              </div>
+            </div>
+            <button class="check-btn" title="Проверить доступность">⟳</button>
+            <button class="history-btn" title="История изменений">🕘</button>
+            <button class="edit-btn" title="Изменить">✎</button>
+            <button class="delete-btn" title="Удалить">×</button>
+          `;
+          row.querySelector('.check-btn').onclick = function () { checkCameraStatus(i); };
+          row.querySelector('.history-btn').onclick = function () {
+            openHistory[i.id] = !openHistory[i.id]; renderList();
+          };
+          row.querySelector('.edit-btn').onclick = function () { editCamera(i); };
+          row.querySelector('.delete-btn').onclick = function () { removeItem(i.id); };
+          listEl.appendChild(row);
+          const hb = historyBlock(i);
+          if (hb) listEl.insertAdjacentHTML('beforeend', hb);
+        });
+      }
+
+      /* ===== Задачи ===== */
+      const tasks = items.filter(i => i.data.type === 'task');
+      const titleCls3 = collapsed.task ? 'list-title collapsed' : 'list-title';
+      listEl.insertAdjacentHTML('beforeend',
+        `<div class="${titleCls3}" onclick="toggleSection('task')"><span class="arrow">▼</span> 📌 Задачи <span class="list-count">(${tasks.length})</span></div>`);
+
+      if (!collapsed.task) {
+        if (tasks.length === 0) {
+          listEl.insertAdjacentHTML('beforeend', '<div style="color:#999;font-size:13px;">Задач пока нет — выберите «Задачу 📌» и кликните по карте</div>');
+        }
+        tasks.forEach(i => {
+          const d = i.data;
+          const prioCls = { high: 'prio-high', mid: 'prio-mid', low: 'prio-low' }[d.prio || 'mid'];
+          const prioTxt = PRIOS[d.prio || 'mid'];
+          const row = document.createElement('div');
+          row.className = 'marker-row';
+          row.innerHTML = `
+            <div class="row-main">
+              <span class="color-dot status-task"></span>
+              <div class="card-text">
+                <b>${d.name || 'Задача'}</b>
+                ${d.done ? '<span class="done-badge">выполнена</span>' : `<span class="prio-badge ${prioCls}">${prioTxt}</span>`}<br/>
+                ${d.author ? '👤 ' + d.author + '<br/>' : ''}
+                ${d.deadline ? '⏰ срок: ' + d.deadline + '<br/>' : ''}
+                ${d.note ? d.note : ''}
+              </div>
+            </div>
+            <button class="check-btn" title="Отметить выполненной">✓</button>
+            <button class="history-btn" title="История изменений">🕘</button>
+            <button class="edit-btn" title="Изменить">✎</button>
+            <button class="delete-btn" title="Удалить">×</button>
+          `;
+          row.querySelector('.check-btn').onclick = function () {
+            const wasDone = d.done;
+            updateItem(i.id, { done: !wasDone }, wasDone ? 'Задача возвращена в работу' : 'Задача отмечена ВЫПОЛНЕННОЙ');
+          };
+          row.querySelector('.history-btn').onclick = function () {
+            openHistory[i.id] = !openHistory[i.id]; renderList();
+          };
+          row.querySelector('.edit-btn').onclick = function () { editTask(i); };
+          row.querySelector('.delete-btn').onclick = function () { removeItem(i.id); };
+          listEl.appendChild(row);
+          const hb = historyBlock(i);
+          if (hb) listEl.insertAdjacentHTML('beforeend', hb);
+        });
+      }
+
+      /* ===== Объекты ===== */
+      const objs = items.filter(i => i.data.type === 'obj');
+      const titleCls4 = collapsed.obj ? 'list-title collapsed' : 'list-title';
+      listEl.insertAdjacentHTML('beforeend',
+        `<div class="${titleCls4}" onclick="toggleSection('obj')"><span class="arrow">▼</span> 🏠 Объекты <span class="list-count">(${objs.length})</span></div>`);
+
+      if (!collapsed.obj) {
+        if (objs.length === 0) {
+          listEl.insertAdjacentHTML('beforeend', '<div style="color:#999;font-size:13px;">Объектов пока нет — выберите «Объект 🏠» и кликните по карте</div>');
+        }
+        objs.forEach(i => {
+          const d = i.data;
+          const row = document.createElement('div');
+          row.className = 'marker-row';
+          row.innerHTML = `
+            <div class="row-main">
+              <span class="color-dot status-obj"></span>
+              <div class="card-text">
+                <b>${d.name || 'Объект'}</b>
+                ${d.kind ? `<span class="zone-badge">${d.kind}</span>` : ''}<br/>
+                ${d.author ? '👤 ' + d.author + '<br/>' : ''}
+                ${d.note ? d.note : ''}
+              </div>
+            </div>
+            <button class="history-btn" title="История изменений">🕘</button>
+            <button class="edit-btn" title="Изменить">✎</button>
+            <button class="delete-btn" title="Удалить">×</button>
+          `;
+          row.querySelector('.history-btn').onclick = function () {
+            openHistory[i.id] = !openHistory[i.id]; renderList();
+          };
+          row.querySelector('.edit-btn').onclick = function () { editObject(i); };
+          row.querySelector('.delete-btn').onclick = function () { removeItem(i.id); };
+          listEl.appendChild(row);
+          const hb = historyBlock(i);
+          if (hb) listEl.insertAdjacentHTML('beforeend', hb);
+        });
+      }
+    }
+
+    /* --- редактирование метки --- */
+    function editSearchCard(item) {
+      const d = item.data;
+      const name = prompt('Ф. И. О.:', d.name || '');
+      if (name === null) return;
+      const birth = prompt('Дата рождения:', d.birth || '');
+      if (birth === null) return;
+      const comment = prompt('Примечание:', d.comment || '');
+      if (comment === null) return;
+
+      updateItem(item.id, { name: name || 'Без имени', birth: birth, comment: comment }, 'Метка отредактирована');
+    }
+
+    /* --- редактирование камеры --- */
+    function editCamera(item) {
+      const d = item.data;
+      const name = prompt('Название камеры:', d.name);
+      if (name === null) return;
+      const zoneNum = { living: '1', gate: '2', road: '3', other: '4' }[d.zone] || '';
+      const zoneInput = prompt('Зона камеры (1 — жилой сектор, 2 — КПП, 3 — трасса, 4 — другое):\nСейчас: ' + (zoneNum || 'не задана'), zoneNum);
+      if (zoneInput === null) return;
+      const link = prompt('Ссылка на трансляцию:', d.link || '');
+      if (link === null) return;
+
+      const zoneMap = { '1': 'living', '2': 'gate', '3': 'road', '4': 'other' };
+      const changes = { name: name, link: link || '' };
+      if (zoneMap[zoneInput.trim()]) changes.zone = zoneMap[zoneInput.trim()];
+      changes.online = 'unknown';
+
+      updateItem(item.id, changes, 'Данные камеры изменены');
+      checkCameraStatus(item);
+    }
+
+    /* --- редактирование задачи --- */
+    function editTask(item) {
+      const d = item.data;
+      const name = prompt('Название задачи:', d.name);
+      if (name === null) return;
+      const prioInput = prompt('Приоритет (1 — высокий, 2 — средний, 3 — низкий):', '');
+      if (prioInput === null) return;
+      const deadline = prompt('Срок выполнения:', d.deadline || '');
+      if (deadline === null) return;
+      const note = prompt('Описание / исполнитель:', d.note || '');
+      if (note === null) return;
+
+      const prioMap = { '1': 'high', '2': 'mid', '3': 'low' };
+      const changes = {
+        name: name,
+        deadline: deadline,
+        note: note
+      };
+      if (prioMap[prioInput.trim()]) changes.prio = prioMap[prioInput.trim()];
+
+      updateItem(item.id, changes, 'Задача отредактирована');
+    }
+
+    /* --- редактирование объекта --- */
+    function editObject(item) {
+      const d = item.data;
+      const name = prompt('Название объекта:', d.name);
+      if (name === null) return;
+      const kind = prompt('Тип объекта:', d.kind || '');
+      if (kind === null) return;
+      const note = prompt('Описание:', d.note || '');
+      if (note === null) return;
+
+      updateItem(item.id, { name: name, kind: kind, note: note }, 'Объект отредактирован');
+    }
+
+    /* --- обновление элемента --- */
+    function updateItem(id, changes, logText) {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      const d = item.data;
+
+      if (changes.coords) {
+        d.coords = changes.coords;
+        item.marker.geometry.setCoordinates(changes.coords);
+      }
+      Object.assign(d, changes);
+
+      if (logText) pushHistory(d, logText);
+
+      item.marker.properties.set('balloonContentHeader', balloonHeader(d));
+      item.marker.properties.set('balloonContentBody', balloonBody(d));
+
+      /* меняем цвет значка задачи при выполнении */
+      if (d.type === 'task') {
+        item.marker.options.set('preset', d.done ? 'islands#greyDotIcon' : 'islands#yellowDotIcon');
+      }
+
+      saveItems(); renderList();
+    }
+
+    function removeItem(id) {
+      const idx = items.findIndex(i => i.id === id);
+      if (idx >= 0) {
+        map.geoObjects.remove(items[idx].marker);
+        items.splice(idx, 1);
+        saveItems(); renderList();
+      }
+    }
+
+    function clearAll() {
+      if (!confirm('Удалить ВСЁ: метки, камеры, задачи и объекты?')) return;
+      items = [];
+      map.geoObjects.removeAll();
+      localStorage.removeItem(storageKey());
+      openHistory = {};
+      renderList();
+      meMarker = null;
+    }
+  </script>
+</body>
+</html>
